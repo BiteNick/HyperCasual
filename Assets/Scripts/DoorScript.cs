@@ -11,16 +11,25 @@ public class DoorScript : MonoBehaviour
     [SerializeField] private GameObject Door1;
     [SerializeField] private GameObject Door2;
 
+    [SerializeField] private AudioClip clip;
+
+    private static int doorsCount;
+
+    private void Start()
+    {
+        doorsCount++;
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         CharacterMove character = other.GetComponent<CharacterMove>();
 
-        if (character.currentIndex >= StatusIndexForOpen)
+        if (MoneysManager.currentMoneys >= character.MaximumMoneysOnLevel / doorsCount * StatusIndexForOpen)
         {
-            Door1.transform.DORotate(new Vector3(0, 90, 0), 1f);
-            Door2.transform.DORotate(new Vector3(0, -90, 0), 1f);
+            Door1.transform.DOLocalRotate(new Vector3(0, 90, 0), 1f);
+            Door2.transform.DOLocalRotate(new Vector3(0, -90, 0), 1f);
             InterfaceManager.moneysMultiplier = moneysCoefficient;
-            character.DoorOpened();
+            character.DoorOpened(clip);
         }
         else
         {

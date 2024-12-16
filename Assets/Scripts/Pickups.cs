@@ -10,18 +10,30 @@ public class Pickups : MonoBehaviour
     [SerializeField] private GameObject pickupParticle; //creates a particle when picked up
     [SerializeField] private Vector3 offsetParticleRotation;
 
+    [SerializeField] private Transform transformToRotate;
+
+    [SerializeField] private AudioClip[] clips;
+
     void Update()
     {
-        transform.Rotate(0, _rotateSpeed * Time.deltaTime, 0);
+        if (transformToRotate != null)
+        {
+            transformToRotate.Rotate(0, _rotateSpeed * Time.deltaTime, 0);
+        }
     }
 
 
-    private void OnTriggerEnter(Collider other)
+    protected void OnTriggerEnter(Collider other)
     {
         if (pickupParticle != null)
             Destroy(Instantiate(pickupParticle, transform.position, Quaternion.Euler(offsetParticleRotation)), 2f);
         
-        other.GetComponent<CharacterMove>().PickUp(moneysForPick, transform.position);
+        other.GetComponent<CharacterMove>().PickUp(moneysForPick, clips);
+        TriggerEnterEnd();
+    }
+
+    protected virtual void TriggerEnterEnd()
+    {
         Destroy(gameObject);
     }
 }

@@ -10,13 +10,17 @@ using UnityEngine.UI;
 public class CharacterMove : MonoBehaviour
 {
     [SerializeField] private float _speed;
+    [SerializeField] private float _speedX; //can to change
+    private float _defaultSpeedX; //no change
     [SerializeField] private float minAngleY;
     [SerializeField] private float maxAngleY;
 
     [SerializeField] private float maxLeftBound;
     [SerializeField] private float maxRightBound;
 
-    [SerializeField] private int MaximumMoneysOnLevel; //how much moneys need for maximum status
+    [SerializeField] private float _rotationToForward;
+
+    [SerializeField] public int MaximumMoneysOnLevel; //how much moneys need for maximum status
 
     public int currentIndex = 0;
     private int _indexDivision;
@@ -31,9 +35,8 @@ public class CharacterMove : MonoBehaviour
     [SerializeField] Transform parentTransform;
 
     [SerializeField] private Animator _animator;
-    [SerializeField] private Slider richSlider;
+    [SerializeField] private Slider _richSlider;
     [SerializeField] private Image sliderFill;
-    [SerializeField] private FloiatingText _floiatingText;
 
     [SerializeField] private InterfaceManager _interfaceManager;
 
@@ -44,46 +47,58 @@ public class CharacterMove : MonoBehaviour
 
     private bool finished = false;
 
+    [SerializeField] private ParticleSystem _moneysSpreadParticle;
+
+    [SerializeField] private AudioSource _audioSource;
+
+    [SerializeField] private AudioClip _modelUpClip;
+    [SerializeField] private AudioClip _finishClip;
+
+    [SerializeField] private FloatingText FloatingText;
+
 
     void Awake()
     {
+        _defaultSpeedX = _speedX;
         if (models.Count != modelsName.Count && models.Count != animations.Count)
         {
             Debug.Log("Please set Equal count for models, modelsName, colors and animations lists!!");
         }
         _indexDivision = MaximumMoneysOnLevel / models.Count;
 
+        RichUIEnable(false);
     }
 
 
-    public void Init()
+    public void Init() //calls when character starts running
     {
+        RichUIEnable(true);
+
         MoneysCheck();
         ModelChange();
     }
 
     void Update()
     {
-        
+
         newPosition = parentTransform.position + parentTransform.forward * _speed * Time.deltaTime;
         parentTransform.position = newPosition;
 
-        
 
 
         if (Input.GetMouseButton(0) && !finished)
         {
             if (parentTransform.eulerAngles.y < -45 || parentTransform.eulerAngles.y > 260)
             {
-                newPosition = transform.localPosition + transform.right * _speed * Time.deltaTime;
+                newPosition = transform.localPosition + transform.right * _speedX * Time.deltaTime;
             }
             else if(parentTransform.eulerAngles.y > 45)
             {
-                newPosition = transform.localPosition + transform.right * -1 * _speed * Time.deltaTime;
+                newPosition = transform.localPosition + transform.right * -1 * _speedX * Time.deltaTime;
             }
             else
             {
-                newPosition = transform.localPosition + transform.forward * _speed * Time.deltaTime;
+                newPosition = transform.localPosition + transform.forward * _speedX * Time.deltaTime;
             }
             newPosition.x = Mathf.Clamp(newPosition.x, maxLeftBound, maxRightBound);
             transform.localPosition = new Vector3(newPosition.x, transform.localPosition.y, transform.localPosition.z);
@@ -95,23 +110,30 @@ public class CharacterMove : MonoBehaviour
             _eulerY = Mathf.Clamp(_eulerY, minAngleY, maxAngleY);
             transform.localEulerAngles = new Vector3(0, _eulerY, 0);
         }
+        transform.localRotation = Quaternion.Lerp(transform.localRotation, Quaternion.Euler(0, 0, 0), _rotationToForward * Time.deltaTime);
 
     }
 
 
-    public void PickUp(int moneysForPick, Vector3 position)
+    public void PickUp(int moneysForPick, AudioClip[] clips)
     {
         MoneysManager.PickUpMoney(moneysForPick);
 
-        //_floiatingText.gameObject.SetActive(true);
-        //_floiatingText.Init(moneysForPick, position);
+        _moneysSpreadParticle.gameObject.SetActive(true);
+        _moneysSpreadParticle.Play();
+
+        AudioPlay(clips);
+
+
+        FloatingText.gameObject.SetActive(true);
+        FloatingText.FloatingTextCall(moneysForPick);
 
         MoneysCheck();
     }
 
     private void MoneysCheck()
     {
-        richSlider.value = (float)MoneysManager.currentMoneys / MaximumMoneysOnLevel;
+        _richSlider.value = (float)MoneysManager.currentMoneys / MaximumMoneysOnLevel;
         int index = MoneysManager.currentMoneys / _indexDivision;
         if (currentIndex == index)
             return;
@@ -120,6 +142,7 @@ public class CharacterMove : MonoBehaviour
             if (index > currentIndex)
             {
                 _modelNameText.transform.DOScale(0.05f, 0.5f).From(0).SetEase(Ease.OutBounce);
+                AudioPlay(_modelUpClip);
                 _animator.SetTrigger("Jump");
             }
             currentIndex = index;
@@ -147,7 +170,7 @@ public class CharacterMove : MonoBehaviour
 
         _modelNameText.text = modelsName[currentIndex];
         _modelNameText.color = _colorsList[currentIndex];
-        _modelNameText.color = _colorsList[currentIndex];
+        sliderFill.color = _colorsList[currentIndex];
     }
 
     private void ClearAnimations()
@@ -159,20 +182,58 @@ public class CharacterMove : MonoBehaviour
         }
     }
 
-    public void ChangeRotation(float degrees)
+    public void CheckpointComplete(AudioClip sound)
     {
-        transform.DOLocalMoveX(0f, 0.5f);
-        parentTransform.DORotate(new Vector3(0, degrees, 0), 0.5f);
+        AudioPlay(sound);
     }
 
-    public void DoorOpened()
+    public void ChangeRotation(float degrees, Vector3 CenterPosition)
     {
-        _modelNameText.gameObject.SetActive(false);
-        richSlider.gameObject.SetActive(false);
+        _speedX = 0;
+        transform.DOLocalMoveX(0f, 0.5f);
+
+        if (degrees == 90f || degrees == 270f)
+            parentTransform.DOMoveZ(CenterPosition.z, 0.5f);
+        else if (degrees == 0f || degrees == 180f)
+            parentTransform.DOMoveX(CenterPosition.x, 0.5f);
+
+        parentTransform.DORotate(new Vector3(0, degrees, 0), 0.5f);
+        Invoke("ChangedRotation", 0.5f);
+    }
+
+    private void ChangedRotation()
+    {
+        _speedX = _defaultSpeedX;
+    }
+
+    private void AudioPlay(AudioClip clip)
+    {
+        _audioSource.PlayOneShot(clip);
+    }
+
+    private void AudioPlay(AudioClip[] clips)
+    {
+        foreach (AudioClip clip in clips)
+        {
+            _audioSource.PlayOneShot(clip);
+        }
+    }
+
+    public void DoorOpened(AudioClip clip)
+    {
+        AudioPlay(clip);
+        RichUIEnable(false);
+    }
+
+    private void RichUIEnable(bool isEnabled)
+    {
+        _modelNameText.gameObject.SetActive(isEnabled);
+        _richSlider.gameObject.SetActive(isEnabled);
     }
 
     public void Finish()
     {
+        AudioPlay(_finishClip);
         _speed = 0;
         _animator.SetTrigger("Dancing");
         finished = true;

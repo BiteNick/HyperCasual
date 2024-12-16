@@ -17,6 +17,8 @@ public class InterfaceManager : MonoBehaviour
 
     [SerializeField] private TextMeshProUGUI RewardText;
 
+    [SerializeField] private RouletteArrow rouletteArrow;
+
     public static int moneysMultiplier;
 
     private bool _isStarted = false;
@@ -43,8 +45,11 @@ public class InterfaceManager : MonoBehaviour
         RunUI.SetActive(false);
         FinishUI.SetActive(true);
 
+        rouletteArrow.Init(moneysMultiplier * MoneysManager.currentMoneys);
+
         DG.Tweening.Sequence animation = DOTween.Sequence();
         animation.Append(_FinishUIPanel.transform.DOScale(1, 0.5f).From(0).SetEase(Ease.OutBounce));
+
 
 
         RewardText.text = (moneysMultiplier * MoneysManager.currentMoneys).ToString();
